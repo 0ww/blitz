@@ -25,11 +25,9 @@ export default class Install extends Command {
     const {args} = this.parse(Install)
     const isNavtiveInstaller = /^([\w]*)$/.test(args.installer)
     if (isNavtiveInstaller) {
-      console.log('dope')
     } else {
       const installerPath = path.resolve(args.installer)
       const installer = require(installerPath).default as Installer<any>
-      console.log(installer)
       const installerArgs = this.argv.reduce(
         (acc, arg) => ({
           ...acc,

@@ -1,5 +1,7 @@
 import {BaseExecutor, executorArgument, getExecutorArgument} from './executor'
 import {Generator, GeneratorOptions} from '@blitzjs/generator'
+import {log} from '@blitzjs/server/src/log'
+import {waitForConfirmation} from '../utils/wait-for-confirmation'
 
 export interface NewFileExecutor extends BaseExecutor {
   templatePath: executorArgument<string>
@@ -33,10 +35,21 @@ class TempGenerator extends Generator<TempGeneratorOptions> {
 }
 
 export async function newFileExecutor(executor: NewFileExecutor, cliArgs: any): Promise<void> {
-  const generator = new TempGenerator({
-    destinationRoot: getExecutorArgument(executor.destinationRoot, cliArgs) || '',
+  log.branded(`[Create Files Step] ${executor.stepName}`)
+  log.info(executor.explanation)
+  const generatorArgs = {
+    destinationRoot: '.',
+    fileContext: getExecutorArgument(executor.destinationRoot, cliArgs) || '',
     templateRoot: getExecutorArgument(executor.templatePath, cliArgs),
     templateValues: getExecutorArgument(executor.templateValues, cliArgs),
+  }
+  const dryRunGenerator = new TempGenerator({
+    ...generatorArgs,
+    dryRun: true,
   })
-  await generator.run()
+  const commitGenerator = new TempGenerator(generatorArgs)
+  log.progress("First we'll do a dry-run. Here's a list of files that would be created:")
+  await dryRunGenerator.run()
+  await waitForConfirmation('To commit the changes, press any key to confirm. Press Ctrl+C to abort')
+  await commitGenerator.run()
 }

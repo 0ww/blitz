@@ -42,6 +42,7 @@ import {
   isFileTransformExecutor,
   fileTransformExecutor,
 } from './executors/file-transform-executor'
+import {log} from '@blitzjs/server/src/log'
 
 type Executor = FileTransformExecutor | AddDependencyExecutor | NewFileExecutor
 
@@ -49,7 +50,7 @@ interface InstallerOptions {
   packageName: string
   packageDescription: string
   packageOwner: string
-  packageRepo: string
+  packageRepoLink: string
   validateArgs?(args: {}): Promise<void>
   preInstall?(): Promise<void>
   beforeEach?(stepId: string | number): Promise<void>
@@ -82,15 +83,27 @@ export class Installer<Options extends InstallerOptions> {
     if (this.options.postInstall) return this.options.postInstall()
   }
 
+  displayFrontmatter() {
+    log.branded(`Welcome to the installer for ${this.options.packageName}`)
+    log.branded(this.options.packageDescription)
+    log.info(`This package is authored and supported by ${this.options.packageOwner}`)
+    log.info(`For additional documentation and support please visit ${this.options.packageRepoLink}`)
+  }
+
   async run(cliArgs: {}): Promise<void> {
+    this.displayFrontmatter()
     try {
       await this.validateArgs(cliArgs)
     } catch (err) {
-      console.error(err)
+      log.error(err)
       return
     }
     await this.preInstall()
     for (const step of this.steps) {
+      console.log() // newline
+      log.meta('========================================')
+      console.log() // newline
+
       await this.beforeEach(step.stepId)
 
       // using if instead of a switch allows us to strongly type the executors

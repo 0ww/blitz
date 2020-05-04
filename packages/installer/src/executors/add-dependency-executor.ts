@@ -1,6 +1,8 @@
 import {BaseExecutor, executorArgument, getExecutorArgument} from './executor'
 import * as fs from 'fs-extra'
+import * as path from 'path'
 import spawn from 'cross-spawn'
+import {log} from '@blitzjs/server/src/log'
 
 interface NpmPackage {
   name: string
@@ -19,21 +21,28 @@ export function isAddDependencyExecutor(executor: BaseExecutor): executor is Add
 }
 
 async function getPackageManager(): Promise<'yarn' | 'npm'> {
-  if (fs.existsSync('yarn.lock')) {
-    return 'yarn'
+  if (fs.existsSync(path.resolve('package-lock.json'))) {
+    return 'npm'
   }
-  return 'npm'
+  return 'yarn'
 }
 
 export async function addDependencyExecutor(executor: AddDependencyExecutor, cliArgs: any): Promise<void> {
+  log.branded(`[Add Dependency Step] ${executor.stepName}`)
+  log.info(executor.explanation)
   const packageManager = await getPackageManager()
   const packagesToInstall = getExecutorArgument(executor.packages, cliArgs)
   for (const pkg of packagesToInstall) {
-    const args: string[] = []
-    pkg.isDevDep ? args.push('-DE') : args.push('-E')
+    const args: string[] = ['add']
+    // if devDep flag isn't specified we install as a devDep
+    if (pkg.isDevDep !== false) {
+      args.push(packageManager === 'yarn' ? '-D' : '--save-dev')
+    }
     pkg.version ? args.push(`${pkg.name}@${pkg.version}`) : args.push(pkg.name)
+    log.meta(`Installing ${pkg.name} ${pkg.isDevDep !== false ? 'as a dev dependency' : ''}`)
     spawn.sync(packageManager, args, {
       stdio: ['inherit', 'pipe', 'pipe'],
     })
   }
+  log.success('Dependency addition complete')
 }

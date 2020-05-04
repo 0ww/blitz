@@ -1,11 +1,12 @@
 import {BaseExecutor, executorArgument, getExecutorArgument} from './executor'
-import jscodeshift from 'jscodeshift'
 import {filePrompt} from './file-prompt'
+import {transform, Transformer, TransformStatus} from '../utils/transform'
+import {log} from '@blitzjs/server/src/log'
 
 export interface FileTransformExecutor extends BaseExecutor {
-  selectTargetFiles?(api: any, cliArgs: any): any[]
+  selectTargetFiles?(cliArgs: any): any[]
   singleFileSearch?: executorArgument<string>
-  transform(fileInfo: any, api: any, options: any): any
+  transform: Transformer
 }
 
 export function isFileTransformExecutor(executor: BaseExecutor): executor is FileTransformExecutor {
@@ -13,10 +14,21 @@ export function isFileTransformExecutor(executor: BaseExecutor): executor is Fil
 }
 
 export async function fileTransformExecutor(executor: FileTransformExecutor, cliArgs: any): Promise<void> {
+  log.branded(`[Transform Files Step] ${executor.stepName}`)
+  log.info(executor.explanation)
   const fileToTransform: string = await filePrompt({
     context: cliArgs,
     globFilter: getExecutorArgument(executor.singleFileSearch, cliArgs),
     getChoices: executor.selectTargetFiles,
   })
-  jscodeshift.run(executor.transform, [fileToTransform])
+  const transformResults = transform(executor.transform, [fileToTransform])
+  for (const result of transformResults) {
+    if (result.status === TransformStatus.Failure) {
+      log.warning(
+        `Failed to update '${result.filename}'. This is likely a bug and should be reported to the author of the installer`,
+      )
+    } else {
+      log.success(`Updated '${result.filename}' successfully`)
+    }
+  }
 }

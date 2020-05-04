@@ -1,5 +1,4 @@
 import {prompt as enquirer} from 'enquirer'
-import jscodeshift from 'jscodeshift'
 import globby from 'globby'
 
 enum SearchType {
@@ -9,7 +8,7 @@ enum SearchType {
 
 interface FilePromptOptions {
   globFilter?: string
-  getChoices?(jscodeshift: jscodeshift.JSCodeshift, context: any): string[]
+  getChoices?(context: any): string[]
   searchType?: SearchType
   context: any
 }
@@ -19,11 +18,13 @@ async function getMatchingFiles(filter: string = ''): Promise<string[]> {
 }
 
 export async function filePrompt(options: FilePromptOptions): Promise<string> {
-  jscodeshift('asdf', {})
   const choices = options.getChoices
-    ? options.getChoices(jscodeshift, options.context)
+    ? options.getChoices(options.context)
     : await getMatchingFiles(options.globFilter)
-  const prompt = enquirer({
+  if (choices.length === 1) {
+    return choices[0]
+  }
+  const results = await enquirer({
     type: 'autocomplete',
     name: 'file',
     message: 'Select the target file',
@@ -31,6 +32,5 @@ export async function filePrompt(options: FilePromptOptions): Promise<string> {
     limit: 10,
     choices,
   })
-  const {file}: {file: string} = await prompt.run()
-  return file
+  return results.file
 }
